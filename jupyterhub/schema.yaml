@@ -413,6 +413,10 @@ properties:
 
               Learn more in [this
               guide](http://docs.heptio.com/content/private-registries/pr-gcr.html).
+      profile_list:
+        type: object
+        description: |
+          This is the profile_list property of KubeSpawner
       image:
         type: object
         description: |

@@ -125,6 +125,9 @@ data:
   {{- if .Values.singleuser.lifecycleHooks }}
   singleuser.lifecycle-hooks: {{ toJson .Values.singleuser.lifecycleHooks | quote }}
   {{- end }}
+  {{- if .Values.singleuser.profile_list }}
+  singleuser.profile_list: {{ toJson .Values.singleuser.profile_list | quote }}
+  {{- end }}
   {{- if .Values.singleuser.initContainers }}
   singleuser.init-containers: {{ toJson .Values.singleuser.initContainers | quote }}
   {{- end }}

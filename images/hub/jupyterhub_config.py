@@ -142,6 +142,10 @@ c.KubeSpawner.cpu_guarantee = get_config('singleuser.cpu.guarantee')
 c.KubeSpawner.extra_resource_limits = get_config('singleuser.extra-resource.limits', {})
 c.KubeSpawner.extra_resource_guarantees = get_config('singleuser.extra-resource.guarantees', {})
 
+profile_list = get_config('singleuser.profile_list')
+if profile_list:
+    c.KubeSpawner.profile_list = profile_list
+
 # Allow switching authenticators easily
 auth_type = get_config('auth.type')
 email_domain = 'local'
