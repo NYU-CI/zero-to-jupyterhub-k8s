@@ -417,6 +417,12 @@ properties:
         type: object
         description: |
           This is the profile_list property of KubeSpawner
+      profile_list_callabe:
+        type: string
+        description: |
+          Set callable profile_list to c.KubeSpawner.profile_list
+          The value of this property should be a String creating a function/callable and it should set
+          the callable to the c.KubeSpawner.profile_list variable 
       image:
         type: object
         description: |

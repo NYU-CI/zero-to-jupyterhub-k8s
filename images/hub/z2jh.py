@@ -21,6 +21,15 @@ def get_config(key, default=None):
     except FileNotFoundError:
         return default
 
+def get_config_string(key, default=None):
+    """Get a config string from /etc/jupyterhub/config"""
+    path = os.path.join('/etc/jupyterhub/config', key)
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return default
+
 def get_secret(key, default=None):
     """Get a secret from /etc/jupyterhub/secret"""
     path = os.path.join('/etc/jupyterhub/secret', key)

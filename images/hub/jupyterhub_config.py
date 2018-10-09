@@ -3,7 +3,7 @@ import glob
 from tornado.httpclient import AsyncHTTPClient
 from kubernetes import client
 
-from z2jh import get_config, get_secret, set_config_if_not_none
+from z2jh import get_config_string, get_config, get_secret, set_config_if_not_none
 from jupyterhub.utils import url_path_join
 
 # Configure JupyterHub to use the curl backend for making HTTP requests,
@@ -142,9 +142,14 @@ c.KubeSpawner.cpu_guarantee = get_config('singleuser.cpu.guarantee')
 c.KubeSpawner.extra_resource_limits = get_config('singleuser.extra-resource.limits', {})
 c.KubeSpawner.extra_resource_guarantees = get_config('singleuser.extra-resource.guarantees', {})
 
-profile_list = get_config('singleuser.profile_list')
-if profile_list:
-    c.KubeSpawner.profile_list = profile_list
+profile_list_callable = get_config_string("singleuser.profile_list_callable")
+
+if profile_list_callable:
+    exec(profile_list_callable)
+else:
+    profile_list = get_config('singleuser.profile_list')
+    if profile_list:
+        c.KubeSpawner.profile_list = profile_list
 
 # Allow switching authenticators easily
 auth_type = get_config('auth.type')
