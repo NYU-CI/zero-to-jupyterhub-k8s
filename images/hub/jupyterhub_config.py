@@ -388,3 +388,138 @@ if get_config('debug.enabled', False):
 extra_configs = sorted(glob.glob('/etc/jupyterhub/config/hub.extra-config.*.py'))
 for ec in extra_configs:
     load_subconfig(ec)
+
+#
+# Custom code (previously in config-rdp.yaml)
+#
+
+c.JupyterHub.cookie_max_age_days = 0.02083333333
+c.JupyterHub.template_paths = ['/usr/local/share/jupyterhub/new_templates']
+c.KubeSpawner.profile_form_template = """
+    <input type='hidden' id='jupyterhub-screen-resolution-width' name='jupyterhub-screen-resolution-width'/>
+    <input type='hidden' id='jupyterhub-screen-resolution-heigth' name='jupyterhub-screen-resolution-heigth'/>
+    <script>
+    document.getElementById('jupyterhub-screen-resolution-heigth').value=window.innerHeight
+    document.getElementById('jupyterhub-screen-resolution-width').value=window.innerWidth
+    // JupyterHub 0.8 applied form-control indisciminately to all form elements.
+    // Can be removed once we stop supporting JupyterHub 0.8
+    $(document).ready(function() {
+        $('#kubespawner-profiles-list input[type="radio"]').removeClass('form-control');
+    });
+    </script>
+    <style>
+    /* The profile description should not be bold, even though it is inside the <label> tag */
+    #kubespawner-profiles-list label p {
+        font-weight: normal;
+    }
+    </style>
+    <div class='form-group' id='kubespawner-profiles-list'>
+    {% for profile in profile_list %}
+    <label for='profile-item-{{ loop.index0 }}' class='form-control input-group'>
+        <div class='col-md-1'>
+            <input type='radio' name='profile' id='profile-item-{{ loop.index0 }}' value='{{ loop.index0 }}' {% if profile.default %}checked{% endif %} />
+        </div>
+        <div class='col-md-11'>
+            <strong>{{ profile.display_name }}</strong>
+            {% if profile.description %}
+            <p>{{ profile.description }}</p>
+            {% endif %}
+        </div>
+    </label>
+    {% endfor %}
+    </div>
+    """
+
+from kubespawner.spawner import KubeSpawner as KSO
+from tornado import gen
+from tornado.ioloop import IOLoop
+class KubeSpawner(KSO):
+    def get_pod_manifest(self):
+        if self.extra_containers:
+            for container in self.extra_containers:
+                if "name" in container and container["name"] == "jupyterhub-oauth":
+                    container["env"] = [ {'name': k, 'value': v} for k, v in (self.get_env() or {}).items()]
+        return super(KubeSpawner, self).get_pod_manifest()
+
+    async def add_project_to_auth_state(self, proj_id):
+        auth_state = await self.user.get_auth_state()
+        if auth_state:
+            self.log.error("auth_state = ")
+            self.log.error(auth_state)
+            auth_state['selected_project'] = proj_id
+            await self.user.save_auth_state(auth_state)
+
+    def options_from_form(self, formdata):
+        self.log.error("formdata = ")
+        self.log.error(formdata)
+        if not self.profile_list or not hasattr(self, '_profile_list'):
+            return formdata
+        # Default to first profile if somehow none is provided
+        selected_profile = int(formdata.get('profile', [0])[0])
+        resolution_width = int(formdata.get('jupyterhub-screen-resolution-width', [1024])[0])
+        if resolution_width > 1920:
+            resolution_width = 1920
+        resolution_heigth = int(formdata.get('jupyterhub-screen-resolution-heigth', [768])[0])
+        if resolution_heigth > 1080:
+            resolution_heigth = 1080
+        options = self._profile_list[selected_profile]
+        self.log.debug("Applying KubeSpawner override for profile '%s'", options['display_name'])
+        kubespawner_override = options.get('kubespawner_override', {})
+        IOLoop.current().spawn_callback(self.add_project_to_auth_state, options['name'])
+        if "env" not in kubespawner_override:
+            kubespawner_override["env"] = {}
+        kubespawner_override["env"]["RESOLUTION"] = "%dx%d" % (resolution_width, resolution_heigth)
+        for k, v in kubespawner_override.items():
+            if callable(v):
+                v = v(self)
+                self.log.debug(".. overriding KubeSpawner value %s=%s (callable result)", k, v)
+            else:
+                self.log.debug(".. overriding KubeSpawner value %s=%s", k, v)
+            setattr(self, k, v)
+        return options
+
+c.JupyterHub.spawner_class = KubeSpawner
+import os
+import ldap3
+import string
+import escapism
+def profile_list_function(spawner):
+    result_arr = []
+    username = spawner.user.name
+    ldapServer = ldap3.Server(os.environ["LDAP_URL"])
+    ldap_conn = ldap3.Connection(server=ldapServer, user=os.environ["LDAP_USER"], password=os.environ["LDAP_PASSWORD"])
+    ldap_conn.bind()
+    ldap_conn.search(os.environ["LDAP_PROJECTS_BASE"], '(member=uid=%s,ou=People,dc=adrf,dc=info)' % (username), attributes=['cn', 'gidNumber'], search_scope=ldap3.SUBTREE)
+    ldap_projects = ldap_conn.entries
+    safe_chars = set(string.ascii_lowercase + string.digits)
+    for proj in ldap_projects:
+        proj_name = proj["cn"][0]
+        proj_gid_number = proj["gidNumber"][0]
+        if proj_name.startswith("project-"):
+            proj_name_no_prefix = proj_name[8:]
+        else:
+            proj_name_no_prefix = proj_name
+        friendly_name = proj_name_no_prefix.replace("_", " ").title()
+        desktop = {'name': proj_name, 'display_name': friendly_name, 'kubespawner_override': {'image_spec': '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-desktop:0.24', "env": {"RESOLUTION": "1024x768"}, "defaultUrl": "/index.html", "extra_pod_config": {"hostAliases": [{"ip": "127.0.0.1", "hostnames": ["jupyter.adrf.info", "pgadmin.adrf.info"]}]}, "extra_container_config": {"envFrom": [{"configMapRef": {"name": "jupyterhub-pod-config"} }] }}}
+        desktop_jupyter = {"name": "jupyter", "image": '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-base-jupyter:0.9-r', "args": ['start-notebook.sh', "--NotebookApp.token=''", "--port=9999" ], "env": [{"name":"JUPYTERHUB_USER", "value": username}, {"name": "JUPYTER_ENABLE_LAB", "value": "True"}], "ports": [{"containerPort": 9999, "name": "jupyter-port", "protocol": "TCP"}], "resources": {"requests":{"memory": "1024Mi", "cpu": "500m"}, "limits": {"cpu": "500m"}}, "envFrom": [{"configMapRef": {"name": "jupyterhub-pod-config"} }]}
+        desktop_oauth = {"name": "jupyterhub-oauth", "image": '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-jupyterhub-nginx-oauth:0.7', "env": [ {'name': k, 'value': v} for k, v in (spawner.get_env() or {}).items()], "ports": [{"containerPort": 9095, "name": "jhub-oauth", "protocol": "TCP"}], "resources": {"requests":{"memory": "32Mi", "cpu": "10m"}, "limits": {"memory": "64Mi", "cpu": "20m"}}}
+        volumes = [{"name": "config", "configMap": {"name": "jupyterhub-pod-config"}}, {"name": "condaenv", "nfs": {"path":  "/mnt/nfs_storage/conda_envs", "server": "10.10.2.10"}}, {"name": "jupyterkernels", "nfs": {"path":  "/mnt/nfs_storage/jupyter_kernels_r", "server": "10.10.2.10"}}, {"name": "dshm", "emptyDir": {"medium": "Memory"}}]
+        volume_mounts = [{"name": "config", "mountPath": "/etc/jupyterhub/config/"}, {"mountPath": "/opt/conda/envs", "name": "condaenv", "subPath": ""}, {"mountPath": "/usr/local/share/jupyter/kernels", "name": "jupyterkernels", "subPath": ""}, {"mountPath": "/dev/shm", "name": "dshm"}]
+    
+        
+        project_shared_name = escapism.escape("project-shared-%s" % proj_name_no_prefix, safe=safe_chars, escape_char='-').lower()
+        project_user_name = escapism.escape("project-user-%s" % proj_name_no_prefix, safe=safe_chars, escape_char='-').lower()
+        volumes.append({"name": project_shared_name, "nfs": {"path": "/mnt/nfs_storage/project_directories/%s/shared" % proj_name_no_prefix, "server": "stuffed.adrf.info"}})
+        volumes.append({"name": project_user_name, "nfs": {"path":  "/mnt/nfs_storage/project_directories/%s/user/%s" % (proj_name_no_prefix, username), "server": "stuffed.adrf.info"}})
+        volume_mounts.append({"mountPath": "/projects/%s/shared" % proj_name_no_prefix, "name": project_shared_name, "subPath": ""})
+        volume_mounts.append({"mountPath": "/nfshome/%s" % username, "name": project_user_name, "subPath": ""})
+        desktop['kubespawner_override']['volumes'] = volumes
+        desktop['kubespawner_override']['volume_mounts'] = volume_mounts
+        desktop_jupyter['volume_mounts'] = volume_mounts
+        desktop["kubespawner_override"]["extra_containers"]=[desktop_jupyter, desktop_oauth]
+        result_arr.append(desktop)
+    return result_arr
+c.KubeSpawner.profile_list = profile_list_function
+c.KubeSpawner.start_timeout = 900
+c.KubeSpawner.http_timeout = 900
+
