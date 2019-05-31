@@ -28,11 +28,12 @@ RUN adduser --disabled-password \
 
 ARG JUPYTERHUB_VERSION=0.9.*
 
-ADD adrf /tmp/adrf
-ADD requirements.txt /tmp/requirements.txt
+WORKDIR /tmp
+ADD adrf adrf
+ADD requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir \
   jupyterhub==${JUPYTERHUB_VERSION} \
-  -r /tmp/requirements.txt
+  -r requirements.txt
 
 WORKDIR /
 ADD jupyterhub_config.py /srv/jupyterhub_config.py
