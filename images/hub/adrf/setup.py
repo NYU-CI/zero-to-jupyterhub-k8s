@@ -10,5 +10,5 @@ setup(name='adrf',
       author_email='rafael.ladislau@nyu.edu',
       url='http://adrf.cloud/',
       packages=find_packages(),
-      install_requires=['jupyterhub-kubespawner==0.9.0','tornado==6.0.2']
+      install_requires=['jupyterhub-kubespawner==0.9.0','tornado==6.0.2', 'ldap3==2.5.1']
      )

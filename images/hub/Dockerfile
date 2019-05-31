@@ -1,40 +1,38 @@
 FROM ubuntu:18.04
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      git \
-      python3 \
-      python3-dev \
-      python3-pip \
-      python3-setuptools \
-      libcurl4-openssl-dev \
-      libssl-dev \
-      build-essential \
-      && \
-    apt-get purge && apt-get clean
+  apt-get install -y --no-install-recommends \
+  git \
+  python3 \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  libcurl4-openssl-dev \
+  libssl-dev \
+  build-essential \
+  && \
+  apt-get purge && apt-get clean
 
-ARG NB_USER=jovyan
+ARG NB_USER=adrf
 ARG NB_UID=1000
-ARG HOME=/home/jovyan
+ARG HOME=/home/adrf
 
 ENV LANG C.UTF-8
 
 RUN adduser --disabled-password \
-    --gecos "Default user" \
-    --uid ${NB_UID} \
-    --home ${HOME} \
-    --force-badname \
-    ${NB_USER}
+  --gecos "Default user" \
+  --uid ${NB_UID} \
+  --home ${HOME} \
+  --force-badname \
+  ${NB_USER}
 
 ARG JUPYTERHUB_VERSION=0.9.*
 
-
-WORKDIR /tmp
-ADD adrf adrf
-ADD requirements.txt requirements.txt
+ADD adrf /tmp/adrf
+ADD requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir \
-         jupyterhub==${JUPYTERHUB_VERSION} \
-         -r requirements.txt
+  jupyterhub==${JUPYTERHUB_VERSION} \
+  -r /tmp/requirements.txt
 
 WORKDIR /
 ADD jupyterhub_config.py /srv/jupyterhub_config.py
