@@ -28,11 +28,15 @@ RUN adduser --disabled-password \
 
 ARG JUPYTERHUB_VERSION=0.9.*
 
-ADD requirements.txt /tmp/requirements.txt
+
+WORKDIR /tmp
+ADD adrf adrf
+ADD requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir \
          jupyterhub==${JUPYTERHUB_VERSION} \
-         -r /tmp/requirements.txt
+         -r requirements.txt
 
+WORKDIR /
 ADD jupyterhub_config.py /srv/jupyterhub_config.py
 
 ADD z2jh.py /usr/local/lib/python3.6/dist-packages/z2jh.py
@@ -46,5 +50,5 @@ RUN chown ${NB_USER}:${NB_USER} /srv/jupyterhub
 # JupyterHub API port
 EXPOSE 8081
 
-USER ${NB_USER}
+#USER ${NB_USER}
 CMD ["jupyterhub", "--config", "/srv/jupyterhub_config.py"]
