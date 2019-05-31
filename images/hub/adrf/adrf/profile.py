@@ -55,18 +55,100 @@ def profile_list_function(spawner):
     else:
       proj_name_no_prefix = proj_name
     friendly_name = proj_name_no_prefix.replace("_", " ").title()
-    desktop = {'name': proj_name, 'display_name': friendly_name, 'kubespawner_override': {'image_spec': '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-desktop:0.24', "env": {"RESOLUTION": "1024x768"}, "defaultUrl": "/index.html", "extra_pod_config": {"hostAliases": [{"ip": "127.0.0.1", "hostnames": ["jupyter.adrf.info", "pgadmin.adrf.info"]}]}, "extra_container_config": {"envFrom": [{"configMapRef": {"name": "jupyterhub-pod-config"} }] }}}
-    desktop_jupyter = {"name": "jupyter", "image": '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-base-jupyter:0.9-r', "args": ['start-notebook.sh', "--NotebookApp.token=''", "--port=9999" ], "env": [{"name":"JUPYTERHUB_USER", "value": username}, {"name": "JUPYTER_ENABLE_LAB", "value": "True"}], "ports": [{"containerPort": 9999, "name": "jupyter-port", "protocol": "TCP"}], "resources": {"requests":{"memory": "1024Mi", "cpu": "500m"}, "limits": {"cpu": "500m"}}, "envFrom": [{"configMapRef": {"name": "jupyterhub-pod-config"} }]}
-    desktop_oauth = {"name": "jupyterhub-oauth", "image": '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-jupyterhub-nginx-oauth:0.7', "env": [ {'name': k, 'value': v} for k, v in (spawner.get_env() or {}).items()], "ports": [{"containerPort": 9095, "name": "jhub-oauth", "protocol": "TCP"}], "resources": {"requests":{"memory": "32Mi", "cpu": "10m"}, "limits": {"memory": "64Mi", "cpu": "20m"}}}
-    volumes = [{"name": "config", "configMap": {"name": "jupyterhub-pod-config"}}, {"name": "condaenv", "nfs": {"path":  "/mnt/nfs_storage/conda_envs", "server": "10.10.2.10"}}, {"name": "jupyterkernels", "nfs": {"path":  "/mnt/nfs_storage/jupyter_kernels_r", "server": "10.10.2.10"}}, {"name": "dshm", "emptyDir": {"medium": "Memory"}}]
-    volume_mounts = [{"name": "config", "mountPath": "/etc/jupyterhub/config/"}, {"mountPath": "/opt/conda/envs", "name": "condaenv", "subPath": ""}, {"mountPath": "/usr/local/share/jupyter/kernels", "name": "jupyterkernels", "subPath": ""}, {"mountPath": "/dev/shm", "name": "dshm"}]
+    desktop = {
+      'name': proj_name, 
+      'display_name': friendly_name, 
+      'kubespawner_override': {
+        'image_spec': '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-desktop:0.24', 
+        "env": {
+          "RESOLUTION": "1024x768"
+        }, 
+        "defaultUrl": "/index.html", 
+        "extra_pod_config": {
+          "hostAliases": [
+            {"ip": "127.0.0.1", "hostnames": ["jupyter.adrf.info", "pgadmin.adrf.info"]}
+          ]
+        }, 
+        "extra_container_config": {
+          "envFrom": [
+            {
+              "configMapRef": {
+                "name": "jupyterhub-pod-config"
+              } 
+            }
+          ]
+        }
+      }
+    }
+    desktop_jupyter = {
+      "name": "jupyter", 
+      "image": os.environ.get('ADRF_DESKTOP_JUPYTER_IMAGE'), 
+      "args": ['start-notebook.sh', "--NotebookApp.token=''", "--port=9999" ], 
+      "env": [
+        {"name":"JUPYTERHUB_USER", "value": username}, 
+        {"name": "JUPYTER_ENABLE_LAB", "value": "True"}
+      ], 
+      "ports": [
+        {"containerPort": 9999, "name": "jupyter-port", "protocol": "TCP"}
+      ],
+      "resources": {
+        "requests":{"memory": "1024Mi", "cpu": "500m"}, 
+        "limits": {"cpu": "500m"}
+      }, 
+      "envFrom": [
+        {"configMapRef": {"name": "jupyterhub-pod-config"} }
+      ]
+    }
+    desktop_oauth = {
+      "name": "jupyterhub-oauth",
+      "image": os.environ.get('ADRF_DESKTOP_OAUTH_IMAGE'), 
+      "env": [ {'name': k, 'value': v} for k, v in (spawner.get_env() or {}).items()], 
+      "ports": [
+        {"containerPort": 9095, "name": "jhub-oauth", "protocol": "TCP"}
+      ], 
+      "resources": {
+        "requests":{"memory": "32Mi", "cpu": "10m"}, 
+        "limits": {"memory": "64Mi", "cpu": "20m"}
+      }
+    }
+    volumes = [
+      {"name": "config", "configMap": {"name": "jupyterhub-pod-config"}}, 
+      {"name": "condaenv", "nfs": {"path":  "/mnt/nfs_storage/conda_envs", "server": "10.10.2.10"}},
+      {"name": "jupyterkernels", "nfs": {"path":  "/mnt/nfs_storage/jupyter_kernels_r", "server": "10.10.2.10"}}, 
+      {"name": "dshm", "emptyDir": {"medium": "Memory"}}
+    ]
+    volume_mounts = [
+      {"name": "config", "mountPath": "/etc/jupyterhub/config/"}, 
+      {"mountPath": "/opt/conda/envs", "name": "condaenv", "subPath": ""}, 
+      {"mountPath": "/usr/local/share/jupyter/kernels", "name": "jupyterkernels", "subPath": ""}, 
+      {"mountPath": "/dev/shm", "name": "dshm"}
+    ]
 
     project_shared_name = escapism.escape("project-shared-%s" % proj_name_no_prefix, safe=safe_chars, escape_char='-').lower()
     project_user_name = escapism.escape("project-user-%s" % proj_name_no_prefix, safe=safe_chars, escape_char='-').lower()
-    volumes.append({"name": project_shared_name, "nfs": {"path": "/mnt/nfs_storage/project_directories/%s/shared" % proj_name_no_prefix, "server": "stuffed.adrf.info"}})
-    volumes.append({"name": project_user_name, "nfs": {"path":  "/mnt/nfs_storage/project_directories/%s/user/%s" % (proj_name_no_prefix, username), "server": "stuffed.adrf.info"}})
-    volume_mounts.append({"mountPath": "/projects/%s/shared" % proj_name_no_prefix, "name": project_shared_name, "subPath": ""})
-    volume_mounts.append({"mountPath": "/nfshome/%s" % username, "name": project_user_name, "subPath": ""})
+    volumes.append({
+      "name": project_shared_name, 
+      "nfs": {
+        "path": "/mnt/nfs_storage/project_directories/%s/shared" % proj_name_no_prefix, 
+        "server": "stuffed.adrf.info"
+      }
+    })
+    volumes.append({
+      "name": project_user_name, 
+      "nfs": {
+        "path":  "/mnt/nfs_storage/project_directories/%s/user/%s" % (proj_name_no_prefix, username), 
+        "server": "stuffed.adrf.info"
+      }
+    })
+    volume_mounts.append({
+      "mountPath": "/projects/%s/shared" % proj_name_no_prefix, 
+      "name": project_shared_name, "subPath": ""
+    })
+    volume_mounts.append({
+      "mountPath": "/nfshome/%s" % username, 
+      "name": project_user_name, 
+      "subPath": ""
+    })
     desktop['kubespawner_override']['volumes'] = volumes
     desktop['kubespawner_override']['volume_mounts'] = volume_mounts
     desktop_jupyter['volume_mounts'] = volume_mounts
