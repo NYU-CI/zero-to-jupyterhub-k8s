@@ -86,7 +86,7 @@ def profile_list_function(spawner):
       "args": ['start-notebook.sh', "--NotebookApp.token=''", "--port=9999" ], 
       "env": [
         {"name":"JUPYTERHUB_USER", "value": username}, 
-        {"name": "JUPYTER_ENABLE_LAB", "value": "True"}
+        {"name":"JUPYTER_ENABLE_LAB", "value": "True"}
       ], 
       "ports": [
         {"containerPort": 9999, "name": "jupyter-port", "protocol": "TCP"}
@@ -142,7 +142,8 @@ def profile_list_function(spawner):
     })
     volume_mounts.append({
       "mountPath": "/projects/%s/shared" % proj_name_no_prefix, 
-      "name": project_shared_name, "subPath": ""
+      "name": project_shared_name, 
+      "subPath": ""
     })
     volume_mounts.append({
       "mountPath": "/nfshome/%s" % username, 
