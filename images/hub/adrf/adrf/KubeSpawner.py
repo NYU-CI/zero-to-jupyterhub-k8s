@@ -47,11 +47,11 @@ class KubeSpawner(KSO):
       setattr(self, k, v)
     return options
   
-  def _start(self):
-    return self._start()
+  def start(self):
+    return self.start()
 
   def stop(self, now=False):
-    return self._stop(now)
+    return self.stop(now=now)
 
 
 if __name__ == "__main__":
