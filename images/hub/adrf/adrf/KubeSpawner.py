@@ -46,12 +46,13 @@ class KubeSpawner(KSO):
         self.log.debug(".. overriding KubeSpawner value %s=%s", k, v)
       setattr(self, k, v)
     return options
-  
+ 
   def start(self):
-    return self.start()
+    return super().start()
 
+  @gen.coroutine
   def stop(self, now=False):
-    return self.stop(now=now)
+    return super().stop(now=now)
 
 
 if __name__ == "__main__":
