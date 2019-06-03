@@ -59,7 +59,7 @@ def profile_list_function(spawner):
       'name': proj_name, 
       'display_name': friendly_name, 
       'kubespawner_override': {
-        'image_spec': '441870321480.dkr.ecr.us-east-1.amazonaws.com/adrf-desktop:0.24', 
+        'image_spec': os.environ.get('ADRF_POD_DESKTOP_IMAGE'), 
         "env": {
           "RESOLUTION": "1024x768"
         }, 
@@ -82,7 +82,7 @@ def profile_list_function(spawner):
     }
     desktop_jupyter = {
       "name": "jupyter", 
-      "image": os.environ.get('ADRF_DESKTOP_JUPYTER_IMAGE'), 
+      "image": os.environ.get('ADRF_POD_JUPYTER_IMAGE'), 
       "args": ['start-notebook.sh', "--NotebookApp.token=''", "--port=9999" ], 
       "env": [
         {"name":"JUPYTERHUB_USER", "value": username}, 
@@ -101,7 +101,7 @@ def profile_list_function(spawner):
     }
     desktop_oauth = {
       "name": "jupyterhub-oauth",
-      "image": os.environ.get('ADRF_DESKTOP_OAUTH_IMAGE'), 
+      "image": os.environ.get('ADRF_POD_OAUTH_IMAGE'), 
       "env": [ {'name': k, 'value': v} for k, v in (spawner.get_env() or {}).items()], 
       "ports": [
         {"containerPort": 9095, "name": "jhub-oauth", "protocol": "TCP"}
