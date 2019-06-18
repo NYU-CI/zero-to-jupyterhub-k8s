@@ -48,11 +48,31 @@ class KubeSpawner(KSO):
     return options
  
   def start(self):
-    return super().start()
+    response = super().start()
+    # Send notification to aws
+    client = boto3.client('sns')
+    message={"key": "valuestring", "key2": 10}
+    response = client.publish(
+      TopicArn='arn:aws:sns:us-east-1:441870321480:adrf-workspace-started',
+      Message=json.dumps({'default': json.dumps(message)}),
+      MessageStructure='json'
+    )
+    return response
 
   @gen.coroutine
   def stop(self, now=False):
-    return super().stop(now=now)
+    response = super().stop(now=now)
+    
+    # Send notification to aws
+    client = boto3.client('sns')
+    message={"key": "valuestring", "key2": 10}
+    response = client.publish(
+      TopicArn='arn:aws:sns:us-east-1:441870321480:adrf-workspace-stopped',
+      Message=json.dumps({'default': json.dumps(message)}),
+      MessageStructure='json'
+    )
+
+    return response
 
 
 if __name__ == "__main__":
